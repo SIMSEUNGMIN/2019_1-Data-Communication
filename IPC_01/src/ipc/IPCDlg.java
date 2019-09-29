@@ -27,9 +27,11 @@ public class IPCDlg extends JFrame implements BaseLayer {
 	public BaseLayer p_UnderLayer = null;
 	public ArrayList<BaseLayer> p_aUpperLayer = new ArrayList<BaseLayer>();
 	BaseLayer UnderLayer;
-
+	
+	//레이어 추가와 연결을 위한 객체 생성
 	private static LayerManager m_LayerMgr = new LayerManager();
-
+	
+	//GUI
 	private JTextField ChattingWrite;
 
 	Container contentPane;
@@ -52,15 +54,18 @@ public class IPCDlg extends JFrame implements BaseLayer {
 	
 	public static void main(String[] args) {
 		
+		//객체 생성
 		m_LayerMgr.AddLayer(new SocketLayer("Socket"));
 		m_LayerMgr.AddLayer(new ChatAppLayer("Chat"));
 		m_LayerMgr.AddLayer(new IPCDlg("GUI"));
-
+		
+		//레이어 연결
 		m_LayerMgr.ConnectLayers(" Socket ( *Chat ) ");
 		m_LayerMgr.ConnectLayers(" Socket ( +GUI )");
 		m_LayerMgr.ConnectLayers(" Chat ( *GUI ) ");
 	}
-
+	
+	//GUI
 	public IPCDlg(String pName) {
 		pLayerName = pName;
 
@@ -148,30 +153,39 @@ public class IPCDlg extends JFrame implements BaseLayer {
 		setVisible(true);
 
 	}
-
+	
 	class setAddressListener implements ActionListener {
 		@Override
 		public void actionPerformed(ActionEvent e) {
 			if(e.getSource() == Setting_Button) {
+				//Setting 버튼을 클릭했을 시 
 				if(Setting_Button.getText().equals("Setting")) {
+					//아무것도 써져 있지 않으면 주소 설정 오류 출력
 					if((srcAddress.getText().equals("")) || (dstAddress.getText().equals(""))) {
 						JOptionPane.showMessageDialog(null, "주소 설정 오류");
 					}
 					else {
+						//주소가 잘 입력되어있으면 더이상 못 쓰게 막음
 						srcAddress.setEnabled(false);
 						dstAddress.setEnabled(false);
+						//setting버튼을 reset로 변경
 						Setting_Button.setText("Reset");
 						
+						//레이어 생성
 						ChatAppLayer chat = (ChatAppLayer)GetUnderLayer();
 						SocketLayer socket = (SocketLayer)chat.GetUnderLayer();
+						//소켓 레이어와 챗레이어에 Port와 Ethernet 주소 박아줌
 						socket.setServerPort(Integer.parseInt(dstAddress.getText()));
 						socket.setClientPort(Integer.parseInt(srcAddress.getText()));
 						chat.SetEnetDstAddress(Integer.parseInt(dstAddress.getText()));
 						chat.SetEnetSrcAddress(Integer.parseInt(srcAddress.getText()));
+						//소켓에서 현재 프로그램이 서버로 동작하도록 함 (데이터가 오면 받을 수 있도록 활성화)
 						socket.Receive();
 					}
 				}
 				else {
+					//버튼에 쓰여진 게 reset일 경우 setting으로 바꾸고
+					//주소들을 다시 입력받을 수 있도록 설정
 					Setting_Button.setText("Setting");
 					srcAddress.setEnabled(true);
 					dstAddress.setEnabled(true);
@@ -182,8 +196,10 @@ public class IPCDlg extends JFrame implements BaseLayer {
 				
 			}
 			else if(e.getSource() == Chat_send_Button) {
-				if(Setting_Button.getText().equals("Reset")) {
+				//데이터 전송 버튼을 눌렀을 시
+				if(Setting_Button.getText().equals("Reset")) { //주소가 세팅 되어있는지 확인(주소가 세팅되어 있으면 Setting버튼이 reset버튼으로 바뀌어있기 때문)
 					ChattingArea.append("[SEND] : " + ChattingWrite.getText() + "\n");
+					//채팅창에 입력된 데이터를 바이트배열로 바꾼 다음 하위 레이어로 전송
 					GetUnderLayer().Send(ChattingWrite.getText().getBytes(), ChattingWrite.getText().getBytes().length);
 					ChattingWrite.setText(null);
 				}
@@ -193,8 +209,9 @@ public class IPCDlg extends JFrame implements BaseLayer {
 			}
 		}
 	}
-
-	public boolean Receive(byte[] input) {	//채팅 화면에 채팅 보여주기
+	
+	//받은 데이터를 채팅창에 띄워줌
+	public boolean Receive(byte[] input) {
 		ChattingArea.append("[RECV] : " + new String(input) + "\n");
 		return true;
 	}
