@@ -7,10 +7,13 @@ public class ChatAppLayer implements BaseLayer {
 	public String pLayerName = null;
 	public BaseLayer p_UnderLayer = null;
 	public ArrayList<BaseLayer> p_aUpperLayer = new ArrayList<BaseLayer>();
-
+	
+	//현재 레이어에서 데이터 앞에 붙을 header
+	//header를 붙여서 나중에 하위 레이어로 전송할 것
 	private class _CAPP_HEADER {
-		int capp_src;
-		int capp_dst;
+		//여기서의 주소는 EthernetAddress 물리 주소
+		int capp_src; //4byte
+		int capp_dst; //4byte
 		byte[] capp_totlen;
 
 		public _CAPP_HEADER() {
@@ -21,14 +24,15 @@ public class ChatAppLayer implements BaseLayer {
 	}
 
 	_CAPP_HEADER m_sHeader = new _CAPP_HEADER();
-
+	
 	public ChatAppLayer(String pName) {
 		// super(pName);
 		// TODO Auto-generated constructor stub
 		pLayerName = pName;
 		ResetHeader();
 	}
-
+	
+	//헤더 초기화
 	public void ResetHeader() {
 		for (int i = 0; i < 2; i++) {
 			m_sHeader.capp_totlen[i] = (byte) 0x00;
@@ -53,8 +57,11 @@ public class ChatAppLayer implements BaseLayer {
 //		return buf;
 //	}
 	
+	//데이터 앞에 헤더를 붙여줌
 	public byte[] ObjToByte(_CAPP_HEADER Header, byte[] input, int length) {
+		//헤더 전체가 10byte이기 때문에 원래 데이터 길이에 10을 더한 만큼 버퍼를 생성
 		byte[] buf = new byte[length + 10];
+		//src주소와 dst주소를 4byte배열로 변환하여 저장
 		byte[] srctemp = intToByte4(Header.capp_src);
 		byte[] dsttemp = intToByte4(Header.capp_dst);
 
@@ -74,9 +81,10 @@ public class ChatAppLayer implements BaseLayer {
 
 		return buf;
 	}
-
-	public boolean Send(byte[] input, int length) { //보내는 데이터, 과제
-		//헤더에 src주소랑 dst주소를 집어넣어야함.
+	
+	//데이터를 하위 레이어로 전송
+	public boolean Send(byte[] input, int length) {
+		//헤더를 붙여준 다음 데이터를 하위 레이어로 전송함
 		byte[] data = ObjToByte(m_sHeader, input, length);
 		this.GetUnderLayer().Send(data, data.length);
 		return true;
@@ -90,12 +98,15 @@ public class ChatAppLayer implements BaseLayer {
 //		return input2;// 변경하세요 필요하시면
 //	}
 	
-	public byte[] RemoveCappHeader(byte[] input, int length) { //과제
-		//앞의 6칸 삭제
+	//하위 레이어에서 올라온 데이터에는 ChatAppLayer의 헤더가 붙어 있기 때문에 헤더를 떼줌
+	//헤더를 뗀 순수 데이터를 반환
+	public byte[] RemoveCappHeader(byte[] input, int length) {
+		//앞의 10칸 삭제 (헤더 크기만큼)
 		byte[] input2 = new byte[length-10];
+		//배열의 10번째부터 (데이터의 시작 index) 복사해서 붙임
 		System.arraycopy(input, 10, input2, 0, length-10);
 		
-		return input2;// 변경하세요 필요하시면
+		return input2;
 	}
 
 //	public synchronized boolean Receive(byte[] input) { //소켓레이어를 통해서 받은 데이터
@@ -112,17 +123,21 @@ public class ChatAppLayer implements BaseLayer {
 //		return true;
 //	}
 	
-	public synchronized boolean Receive(byte[] input) { //소켓레이어를 통해서 받은 데이터
+	//소켓레이어를 통해서 받은 데이터 (동기화 방지 -> 데이터를 받고 있는 동안에는 자신의 객체 외에는 다른 객체는 접근 불가)
+	public synchronized boolean Receive(byte[] input) { 
 		byte[] data;
 		byte[] temp_src = intToByte4(m_sHeader.capp_src);
+		//받아온 데이터의 맨 앞 부분(dstAddress)가 있는 부분이 자신의 src주소와 맞지 않으면 데이터를 받지 않음
 		for (int i = 0; i < 4; i++) {
 			if (input[i] != temp_src[i]) {
 				return false;
 			}
 		}
+		//받아온 데이터의 맨 앞 부분(dstAddress)가 있는 부분이 자신의 src주소와 같을 경우
 		data = RemoveCappHeader(input, input.length); //소켓 헤더를 분리
+		//데이터를 상위 레이어로 보냄
 		this.GetUpperLayer(0).Receive(data);
-		// 주소설정
+		
 		return true;
 	}
 
@@ -134,7 +149,8 @@ public class ChatAppLayer implements BaseLayer {
 //		return temp;
 //	}
 	
-	byte[] intToByte4(int value) { //바이트로 변경.
+	//int값을 4byte 배열의 값으로 변경
+	byte[] intToByte4(int value) {
 		byte[] temp = new byte[4];
 		
 		temp[0] |= (byte) ((value & 0xFF000000) >> 24);
@@ -190,12 +206,14 @@ public class ChatAppLayer implements BaseLayer {
 		this.SetUpperLayer(pUULayer);
 		pUULayer.SetUnderLayer(this);
 	}
-
+	
+	//헤더의 이더넷 주소 지정 (source)
 	public void SetEnetSrcAddress(int srcAddress) {
 		// TODO Auto-generated method stub
 		m_sHeader.capp_src = srcAddress;
 	}
-
+	
+	//헤더의 이더넷 주소 지정 (destination)
 	public void SetEnetDstAddress(int dstAddress) {
 		// TODO Auto-generated method stub
 		m_sHeader.capp_dst = dstAddress;
